@@ -1,0 +1,61 @@
+%global tarball xf86-video-amdgpu
+%global moduledir %(pkg-config xorg-server --variable=moduledir )
+%global driverdir %{moduledir}/drivers
+
+# Suppress output of debuginfo and debugsource
+%global debug_package %{nil}
+
+# Xorg cannot load hardened build
+%undefine _hardened_build
+
+Name:       xorg-x11-drv-amdgpu
+Version:    @VERSION@
+Release:    @REL@%{?dist}
+
+Summary:    AMD GPU video driver
+License:    MIT
+
+URL:        https://www.x.org/wiki
+Source:     https://www.x.org/archive/individual/driver/%{tarball}-%{version}.tar.xz
+
+ExcludeArch: s390 s390x
+
+BuildRequires: make
+BuildRequires: xorg-x11-server-devel
+BuildRequires: mesa-libGL-devel
+BuildRequires: mesa-libgbm-devel
+BuildRequires: libdrm-devel
+BuildRequires: kernel-headers
+BuildRequires: automake autoconf libtool pkgconfig
+BuildRequires: xorg-x11-util-macros
+BuildRequires: libudev-devel
+BuildRequires: xorg-x11-glamor-devel
+
+Requires: Xorg %(xserver-sdk-abi-requires ansic)
+Requires: Xorg %(xserver-sdk-abi-requires videodrv)
+Requires: libdrm >= 2.4.89
+
+%description
+X.Org X11 AMDGPU driver
+
+%prep
+%autosetup -p1 -n %{tarball}-%{version}
+
+%build
+#autoreconf -fiv
+%configure --disable-static --enable-glamor
+%make_build
+
+%install
+%make_install
+find %{buildroot} -name '*.la' -exec rm -f {} ';'
+
+%ldconfig_scriptlets
+
+%files
+%{driverdir}/amdgpu_drv.so
+%{_datadir}/X11/xorg.conf.d/10-amdgpu.conf
+%{_mandir}/man4/amdgpu.4*
+
+%changelog
+@CHANGELOG@
