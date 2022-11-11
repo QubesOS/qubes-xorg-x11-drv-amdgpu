@@ -1,0 +1,81 @@
+From 89b3eb9fffe2ead4257eee6d65accbac135aedc9 Mon Sep 17 00:00:00 2001
+From: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date: Sat, 19 Feb 2022 12:07:46 -0800
+Subject: [PATCH 1/9] Update URLs to reflect gitlab migration
+
+Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+---
+ README.md      |  6 +-----
+ configure.ac   |  2 +-
+ man/amdgpu.man | 10 +++++-----
+ 3 files changed, 7 insertions(+), 11 deletions(-)
+
+diff --git a/README.md b/README.md
+index ac9454e..083432d 100644
+--- a/README.md
++++ b/README.md
+@@ -4,15 +4,11 @@ xf86-video-amdgpu - Xorg driver for AMD Radeon GPUs using the amdgpu kernel driv
+ Questions regarding this software should be directed at the
+ [amd-gfx mailing list](https://lists.freedesktop.org/mailman/listinfo/amd-gfx).
+ 
+-Please
+-[submit bug reports](https://bugs.freedesktop.org/enter_bug.cgi?product=xorg&component=Driver/AMDgpu)
+-to the Xorg bugzilla.
+-
+ The
+ [main development code repository](https://gitlab.freedesktop.org/xorg/driver/xf86-video-amdgpu)
+ can be found at FreeDesktop Gitlab.
+ 
+-Please use merge requests for patch submission.
++Please submit bug reports there and use merge requests for patch submission.
+ 
+ See the X.org wiki for
+ [further patch submission instructions](https://www.x.org/wiki/Development/Documentation/SubmittingPatches)
+diff --git a/configure.ac b/configure.ac
+index fb9db9a..3172b39 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -24,7 +24,7 @@
+ AC_PREREQ([2.60])
+ AC_INIT([xf86-video-amdgpu],
+         [22.0.0],
+-        [https://bugs.freedesktop.org/enter_bug.cgi?product=xorg&component=Driver/AMDgpu],
++        [https://gitlab.freedesktop.org/xorg/driver/xf86-video-amdgpu/-/issues],
+         [xf86-video-amdgpu])
+ 
+ AC_CONFIG_SRCDIR([Makefile.am])
+diff --git a/man/amdgpu.man b/man/amdgpu.man
+index 65ac77c..54b5bd4 100644
+--- a/man/amdgpu.man
++++ b/man/amdgpu.man
+@@ -140,7 +140,7 @@ https://www.x.org/wiki/radeon
+ .IP " 2." 4
+ Overview about amdgpu development code:
+ .RS 4
+-https://cgit.freedesktop.org/xorg/driver/xf86-video-amdgpu/
++https://gitlab.freedesktop.org/xorg/driver/xf86-video-amdgpu
+ .RE
+ .IP " 3." 4
+ Mailing list:
+@@ -153,14 +153,14 @@ IRC channel:
+ #radeon on irc.freenode.net
+ .RE
+ .IP " 5." 4
+-Query the bugtracker for amdgpu bugs:
++The bugtracker for amdgpu bugs:
+ .RS 4
+-https://bugs.freedesktop.org/query.cgi?product=xorg&component=Driver/AMDgpu
++https://gitlab.freedesktop.org/xorg/driver/xf86-video-amdgpu/-/issues
+ .RE
+ .IP " 6." 4
+-Submit bugs & patches:
++Submit merge requests:
+ .RS 4
+-https://bugs.freedesktop.org/enter_bug.cgi?product=xorg&component=Driver/AMDgpu
++https://gitlab.freedesktop.org/xorg/driver/xf86-video-amdgpu/-/merge_requests
+ .RE
+ 
+ .SH AUTHORS
+-- 
+2.37.3
+

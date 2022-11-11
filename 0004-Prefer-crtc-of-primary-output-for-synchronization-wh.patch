@@ -1,0 +1,65 @@
+From e39a3ee07c9dea73b0452b71b1ef633b6cd6f389 Mon Sep 17 00:00:00 2001
+From: Lukasz Spintzyk <lukasz.spintzyk@displaylink.com>
+Date: Mon, 21 Jun 2021 11:41:40 +0200
+Subject: [PATCH 4/9] Prefer crtc of primary output for synchronization when
+ screen has to crtcs with the same coverage
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+This is adjusting randr_crtc_covering_drawable to cover scenario fixed in
+9151f3b1c2ebcc34e63195888ba696f2183ba5e2
+
+Signed-off-by: Łukasz Spintzyk <lukasz.spintzyk@synaptics.com>
+Signed-off-by: Shashank Sharma <contactshashanksharma@gmail.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ src/amdgpu_video.c | 12 ++++++++++--
+ 1 file changed, 10 insertions(+), 2 deletions(-)
+
+diff --git a/src/amdgpu_video.c b/src/amdgpu_video.c
+index b4e3fa4..d00e9c4 100644
+--- a/src/amdgpu_video.c
++++ b/src/amdgpu_video.c
+@@ -172,13 +172,16 @@ static RRCrtcPtr
+ amdgpu_crtc_covering_box(ScreenPtr pScreen, BoxPtr box, Bool screen_is_xf86_hint)
+ {
+ 	rrScrPrivPtr pScrPriv;
+-	RRCrtcPtr crtc, best_crtc;
++	RRCrtcPtr crtc, best_crtc, primary_crtc;
+ 	int coverage, best_coverage;
+ 	int c;
+ 	BoxRec crtc_box, cover_box;
++	RROutputPtr primary_output;
+ 
+ 	best_crtc = NULL;
+ 	best_coverage = 0;
++	primary_crtc = NULL;
++	primary_output = NULL;
+ 
+ 	if (!dixPrivateKeyRegistered(rrPrivKey))
+ 		return NULL;
+@@ -188,6 +191,10 @@ amdgpu_crtc_covering_box(ScreenPtr pScreen, BoxPtr box, Bool screen_is_xf86_hint
+ 	if (!pScrPriv)
+ 		return NULL;
+ 
++	primary_output = RRFirstOutput(pScreen);
++	if (primary_output && primary_output->crtc)
++		primary_crtc = primary_output->crtc->devPrivate;
++
+ 	for (c = 0; c < pScrPriv->numCrtcs; c++) {
+ 		crtc = pScrPriv->crtcs[c];
+ 
+@@ -198,7 +205,8 @@ amdgpu_crtc_covering_box(ScreenPtr pScreen, BoxPtr box, Bool screen_is_xf86_hint
+ 		amdgpu_crtc_box(crtc, &crtc_box);
+ 		amdgpu_box_intersect(&cover_box, &crtc_box, box);
+ 		coverage = amdgpu_box_area(&cover_box);
+-		if (coverage > best_coverage) {
++		if (coverage > best_coverage ||
++		   (crtc == primary_crtc && coverage == best_coverage)) {
+ 			best_crtc = crtc;
+ 			best_coverage = coverage;
+ 		}
+-- 
+2.37.3
+

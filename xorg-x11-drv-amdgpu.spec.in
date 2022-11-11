@@ -35,6 +35,15 @@ Requires: Xorg %(xserver-sdk-abi-requires ansic)
 Requires: Xorg %(xserver-sdk-abi-requires videodrv)
 Requires: libdrm >= 2.4.89
 
+Patch0001: 0001-Update-URLs-to-reflect-gitlab-migration.patch
+Patch0002: 0002-amdgpu-fixup-driver-for-new-X-server-ABI.patch
+Patch0003: 0003-Use-randr_crtc_covering_drawable-used-in-modesetting.patch
+Patch0004: 0004-Prefer-crtc-of-primary-output-for-synchronization-wh.patch
+Patch0005: 0005-Do-not-consider-disabled-crtc-anymore-when-looking-f.patch
+Patch0006: 0006-Initialize-present-extension-for-GPU-screen.patch
+Patch0007: 0007-Fix-screen-corruption-on-secondary-GPU.patch
+Patch0009: 0009-Use-DRM_CAP_CURSOR_WIDTH-HEIGHT-if-possible.patch
+
 %description
 X.Org X11 AMDGPU driver
 

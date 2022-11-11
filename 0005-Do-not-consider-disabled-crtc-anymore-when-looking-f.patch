@@ -1,0 +1,175 @@
+From f3f57a58342c286808220bdbe6dc6bb7098763b9 Mon Sep 17 00:00:00 2001
+From: Lukasz Spintzyk <lukasz.spintzyk@displaylink.com>
+Date: Fri, 11 Jun 2021 14:54:35 +0200
+Subject: [PATCH 5/9] Do not consider disabled crtc anymore when looking for
+ xf86crtc covering drawable.
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+This is commit is removing obsolete switch done in
+
+xf86-video-ati at sha 61d0aec40e2521488c2fe43e7a6823e5c87d94d7:  video: add option to include disabled CRTCs in best CRTC search
+This is not required anymore as with commit done in
+xorg-server at sha 5c5c1b77982a9af7279a90bc3c2be48adaa9c778:     present: Add Present extension
+That in case of lack of crtc is using fake_crtc with render 1Hz frequency
+
+When consider_disabled is removed then amdgpu_pick_best_crtc is doing the same what rr_crtc_covering_box is doing
+so it can be reimplemented to reuse that function.
+
+Signed-off-by: Łukasz Spintzyk <lukasz.spintzyk@synaptics.com>
+Signed-off-by: Shashank Sharma <contactshashanksharma@gmail.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ src/amdgpu_dri2.c  |  3 +-
+ src/amdgpu_drv.h   |  3 +-
+ src/amdgpu_video.c | 91 ++++++++++++----------------------------------
+ 3 files changed, 26 insertions(+), 71 deletions(-)
+
+diff --git a/src/amdgpu_dri2.c b/src/amdgpu_dri2.c
+index a77e4e3..bfc14f3 100644
+--- a/src/amdgpu_dri2.c
++++ b/src/amdgpu_dri2.c
+@@ -417,8 +417,7 @@ static
+ xf86CrtcPtr amdgpu_dri2_drawable_crtc(DrawablePtr pDraw)
+ {
+ 	ScreenPtr pScreen = pDraw->pScreen;
+-	ScrnInfoPtr pScrn = xf86ScreenToScrn(pScreen);
+-	xf86CrtcPtr crtc = amdgpu_pick_best_crtc(pScrn, TRUE,
++	xf86CrtcPtr crtc = amdgpu_pick_best_crtc(pScreen,
+ 						 pDraw->x, pDraw->x + pDraw->width,
+ 						 pDraw->y, pDraw->y + pDraw->height);
+ 
+diff --git a/src/amdgpu_drv.h b/src/amdgpu_drv.h
+index 3f9e2e0..2952b7b 100644
+--- a/src/amdgpu_drv.h
++++ b/src/amdgpu_drv.h
+@@ -372,8 +372,7 @@ extern void amdgpu_sync_close(ScreenPtr screen);
+ /* amdgpu_video.c */
+ extern void AMDGPUInitVideo(ScreenPtr pScreen);
+ extern void AMDGPUResetVideo(ScrnInfoPtr pScrn);
+-extern xf86CrtcPtr amdgpu_pick_best_crtc(ScrnInfoPtr pScrn,
+-					 Bool consider_disabled,
++extern xf86CrtcPtr amdgpu_pick_best_crtc(ScreenPtr pScreen,
+ 					 int x1, int x2, int y1, int y2);
+ extern RRCrtcPtr amdgpu_randr_crtc_covering_drawable(DrawablePtr pDraw);
+ 
+diff --git a/src/amdgpu_video.c b/src/amdgpu_video.c
+index d00e9c4..9cf8ea1 100644
+--- a/src/amdgpu_video.c
++++ b/src/amdgpu_video.c
+@@ -50,19 +50,6 @@ static void amdgpu_box_intersect(BoxPtr dest, BoxPtr a, BoxPtr b)
+ 		dest->x1 = dest->x2 = dest->y1 = dest->y2 = 0;
+ }
+ 
+-static void amdgpu_crtc_box(xf86CrtcPtr crtc, BoxPtr crtc_box)
+-{
+-	if (crtc->enabled) {
+-		crtc_box->x1 = crtc->x;
+-		crtc_box->x2 =
+-		    crtc->x + xf86ModeWidth(&crtc->mode, crtc->rotation);
+-		crtc_box->y1 = crtc->y;
+-		crtc_box->y2 =
+-		    crtc->y + xf86ModeHeight(&crtc->mode, crtc->rotation);
+-	} else
+-		crtc_box->x1 = crtc_box->x2 = crtc_box->y1 = crtc_box->y2 = 0;
+-}
+-
+ static int amdgpu_box_area(BoxPtr box)
+ {
+ 	return (int)(box->x2 - box->x1) * (int)(box->y2 - box->y1);
+@@ -76,60 +63,6 @@ amdgpu_crtc_is_enabled(xf86CrtcPtr crtc)
+ 	return crtc->enabled && drmmode_crtc->dpms_mode == DPMSModeOn;
+ }
+ 
+-xf86CrtcPtr
+-amdgpu_pick_best_crtc(ScrnInfoPtr pScrn, Bool consider_disabled,
+-		      int x1, int x2, int y1, int y2)
+-{
+-	xf86CrtcConfigPtr xf86_config = XF86_CRTC_CONFIG_PTR(pScrn);
+-	int coverage, best_coverage, c, cd;
+-	BoxRec box, crtc_box, cover_box;
+-	RROutputPtr primary_output = NULL;
+-	xf86CrtcPtr best_crtc = NULL, primary_crtc = NULL;
+-
+-	if (!pScrn->vtSema)
+-		return NULL;
+-
+-	box.x1 = x1;
+-	box.x2 = x2;
+-	box.y1 = y1;
+-	box.y2 = y2;
+-	best_coverage = 0;
+-
+-	/* Prefer the CRTC of the primary output */
+-	if (dixPrivateKeyRegistered(rrPrivKey))
+-	{
+-		primary_output = RRFirstOutput(pScrn->pScreen);
+-	}
+-	if (primary_output && primary_output->crtc)
+-		primary_crtc = primary_output->crtc->devPrivate;
+-
+-	/* first consider only enabled CRTCs
+-	 * then on second pass consider disabled ones
+-	 */
+-	for (cd = 0; cd < (consider_disabled ? 2 : 1); cd++) {
+-		for (c = 0; c < xf86_config->num_crtc; c++) {
+-			xf86CrtcPtr crtc = xf86_config->crtc[c];
+-
+-			if (!cd && !xf86_crtc_on(crtc))
+-				continue;
+-
+-			amdgpu_crtc_box(crtc, &crtc_box);
+-			box_intersect(&cover_box, &crtc_box, &box);
+-			coverage = box_area(&cover_box);
+-			if (coverage > best_coverage ||
+-			    (coverage == best_coverage &&
+-			     crtc == primary_crtc)) {
+-				best_crtc = crtc;
+-				best_coverage = coverage;
+-			}
+-		}
+-		if (best_crtc)
+-			break;
+-	}
+-
+-	return best_crtc;
+-}
+-
+ static void amdgpu_crtc_box(RRCrtcPtr crtc, BoxPtr crtc_box)
+ {
+ 	if (crtc->mode) {
+@@ -258,6 +191,30 @@ amdgpu_randr_crtc_covering_drawable(DrawablePtr pDraw)
+ 	return crtc;
+ }
+ 
++xf86CrtcPtr
++amdgpu_pick_best_crtc(ScreenPtr pScreen,
++		      int x1, int x2, int y1, int y2)
++{
++	ScrnInfoPtr pScrn = xf86ScreenToScrn(pScreen);
++
++	if (!pScrn->vtSema)
++		return NULL;
++
++	RRCrtcPtr crtc = NULL;
++	BoxRec box;
++
++	box.x1 = x1;
++	box.x2 = x2;
++	box.y1 = y1;
++	box.y2 = y2;
++
++	crtc = amdgpu_crtc_covering_box(pScreen, &box, TRUE);
++	if (crtc) {
++		return crtc->devPrivate;
++	}
++	return NULL;
++}
++
+ void AMDGPUInitVideo(ScreenPtr pScreen)
+ {
+ 	ScrnInfoPtr pScrn = xf86ScreenToScrn(pScreen);
+-- 
+2.37.3
+

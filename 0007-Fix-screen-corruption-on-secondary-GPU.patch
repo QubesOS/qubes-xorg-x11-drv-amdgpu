@@ -1,0 +1,38 @@
+From dc81177ef342bf8c2aa5a6fd6687c7a09b4f9709 Mon Sep 17 00:00:00 2001
+From: tiancyin <tianci.yin@amd.com>
+Date: Wed, 10 Aug 2022 16:46:15 +0800
+Subject: [PATCH 7/9] Fix screen corruption on secondary GPU
+
+[why]
+On RHEL9+, xorg-server.pc shows that the Xorg no longer depends on dri,
+and dri.pc provides "/opt/amdgpu/include" path for pkg-config, this
+cause pkg-config no longer output "-I/opt/amdgpu/include", consequently
+the configure can't find gbm.h and HAVE_GBM_BO_USE_LINEAR is not
+declared, that cause the corruption.
+
+[how]
+Since the gbm.pc also provides the "/opt/amdgpu/include" path, in module
+dependence checking, GBM_CFLAGS get this path, so just explicitly add
+GBM_CFLAGS into CPPFLAGS can fix this issue.
+
+Signed-off-by: tiancyin <tianci.yin@amd.com>
+---
+ configure.ac | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/configure.ac b/configure.ac
+index 3172b39..852efea 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -110,7 +110,7 @@ fi
+ AM_CONDITIONAL(LIBUDEV, test x$LIBUDEV = xyes)
+ 
+ SAVE_CPPFLAGS="$CPPFLAGS"
+-CPPFLAGS="$CPPFLAGS $XORG_CFLAGS"
++CPPFLAGS="$CPPFLAGS $XORG_CFLAGS $GBM_CFLAGS"
+ 
+ AC_MSG_CHECKING([whether to include GLAMOR support])
+ AC_ARG_ENABLE(glamor,
+-- 
+2.37.3
+

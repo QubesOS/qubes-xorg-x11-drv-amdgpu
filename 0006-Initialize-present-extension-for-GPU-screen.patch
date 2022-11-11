@@ -1,0 +1,77 @@
+From a3a012b649eb9b3066abefe163a72854514792fa Mon Sep 17 00:00:00 2001
+From: Kai-Heng Feng <kai.heng.feng@canonical.com>
+Date: Mon, 8 Aug 2022 10:49:11 +0800
+Subject: [PATCH 6/9] Initialize present extension for GPU screen
+
+Some laptops have the external outputs routed to dGPU, when the external
+output over dGPU is the only display in reverse prime mode, we need
+present extension so fake CRTC won't be used.
+---
+ src/amdgpu_kms.c | 44 +++++++++++++++++++++-----------------------
+ 1 file changed, 21 insertions(+), 23 deletions(-)
+
+diff --git a/src/amdgpu_kms.c b/src/amdgpu_kms.c
+index 6d65c81..9364d17 100644
+--- a/src/amdgpu_kms.c
++++ b/src/amdgpu_kms.c
+@@ -2046,36 +2046,34 @@ Bool AMDGPUScreenInit_KMS(ScreenPtr pScreen, int argc, char **argv)
+ 	}
+ #endif
+ 
+-	if (!pScreen->isGPU) {
+-		if (xorgGetVersion() >= XORG_VERSION_NUMERIC(1,18,3,0,0))
+-			value = info->use_glamor;
+-		else
+-			value = FALSE;
+-		from = X_DEFAULT;
++	if (xorgGetVersion() >= XORG_VERSION_NUMERIC(1,18,3,0,0))
++		value = info->use_glamor;
++	else
++		value = FALSE;
++	from = X_DEFAULT;
+ 
+-		if (info->use_glamor) {
+-			if (xf86GetOptValBool(info->Options, OPTION_DRI3, &value))
+-				from = X_CONFIG;
++	if (info->use_glamor) {
++		if (xf86GetOptValBool(info->Options, OPTION_DRI3, &value))
++			from = X_CONFIG;
+ 
+-			if (xf86GetOptValInteger(info->Options, OPTION_DRI, &driLevel) &&
+-			    (driLevel == 2 || driLevel == 3)) {
+-				from = X_CONFIG;
+-				value = driLevel == 3;
+-			}
++		if (xf86GetOptValInteger(info->Options, OPTION_DRI, &driLevel) &&
++				(driLevel == 2 || driLevel == 3)) {
++			from = X_CONFIG;
++			value = driLevel == 3;
+ 		}
++	}
+ 
+-		if (value) {
+-			value = amdgpu_sync_init(pScreen) &&
+-				amdgpu_present_screen_init(pScreen) &&
+-				amdgpu_dri3_screen_init(pScreen);
+-
+-			if (!value)
+-				from = X_WARNING;
+-		}
++	if (value) {
++		value = amdgpu_sync_init(pScreen) &&
++			amdgpu_present_screen_init(pScreen) &&
++			amdgpu_dri3_screen_init(pScreen);
+ 
+-		xf86DrvMsg(pScrn->scrnIndex, from, "DRI3 %sabled\n", value ? "en" : "dis");
++		if (!value)
++			from = X_WARNING;
+ 	}
+ 
++	xf86DrvMsg(pScrn->scrnIndex, from, "DRI3 %sabled\n", value ? "en" : "dis");
++
+ 	pScrn->vtSema = TRUE;
+ 	xf86SetBackingStore(pScreen);
+ 
+-- 
+2.37.3
+
